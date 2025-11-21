@@ -17,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="relative min-h-screen text-white font-sans selection:bg-eco-accent/30 selection:text-white">
+      <body className="relative min-h-screen text-white font-sans selection:bg-eco-accent/30 selection:text-white" suppressHydrationWarning>
         <BackgroundEffect />
         <Navbar />
         <main>{children}</main>
