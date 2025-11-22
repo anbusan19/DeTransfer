@@ -48,6 +48,8 @@ export default function Home() {
   const [historyTab, setHistoryTab] = useState<"uploads" | "shared">("uploads");
   const [shareBlobId, setShareBlobId] = useState("");
   const [accessBlobId, setAccessBlobId] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(0);
 
   // Reset helper
   const reset = () => {
@@ -58,6 +60,8 @@ export default function Home() {
     setError("");
     setShowHistory(false);
     setRecipientAddress("");
+    setUploadProgress(0);
+    setRemainingTime(0);
   };
 
   // Load user files from backend (files uploaded by user)
@@ -149,7 +153,15 @@ export default function Home() {
 
       // Upload directly to Walrus HTTP API
       const { uploadToWalrus } = await import('../lib/walrus/client');
-      const newBlobId = await uploadToWalrus(encryptedFile);
+      const newBlobId = await uploadToWalrus(encryptedFile, (progress, timeRemaining) => {
+        setUploadProgress(progress);
+        setRemainingTime(timeRemaining);
+        if (progress === 100) {
+          setStatus("Finalizing storage on Walrus network...");
+        } else {
+          setStatus(`Uploading: ${progress}% - ${timeRemaining}s remaining`);
+        }
+      });
 
       setBlobId(newBlobId);
 
@@ -318,8 +330,8 @@ export default function Home() {
                   loadUserFiles();
                 }}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${historyTab === "uploads"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
               >
                 My Uploads ({userFiles.length})
@@ -330,8 +342,8 @@ export default function Home() {
                   loadSharedFiles();
                 }}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${historyTab === "shared"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-slate-500 hover:text-slate-700"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
                   }`}
               >
                 Shared with Me ({sharedFiles.length})
@@ -549,6 +561,30 @@ export default function Home() {
                   {status.includes("Uploading") && <Loader2 className="animate-spin w-5 h-5" />}
                   {currentStep > 0 && <CheckCircle className="w-5 h-5" />}
                 </button>
+
+                {/* Progress Bar */}
+                {status.includes("Uploading") && (
+                  <div className="space-y-1">
+                    <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>{uploadProgress}% Uploaded</span>
+                      <span>{remainingTime > 0 ? `~${remainingTime}s remaining` : 'Calculating...'}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Finalizing Status */}
+                {status.includes("Finalizing") && (
+                  <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 p-2 rounded">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>Processing on Walrus network... this may take a moment.</span>
+                  </div>
+                )}
               </div>
             )}
 

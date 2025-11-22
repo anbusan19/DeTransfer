@@ -1,48 +1,69 @@
-# File Upload System with Seal & Walrus
+# DeTransfer - Decentralized Secure File Transfer
 
-A decentralized file upload system built with Next.js, Seal SDK (encryption), and Walrus (storage) on Sui blockchain.
+DeTransfer is a secure, decentralized file transfer application built on the Sui blockchain. It combines the power of **Walrus** for decentralized storage and **Seal** for end-to-end encryption, ensuring that your files are safe, permanent, and accessible only to the intended recipients.
 
-## 📚 Documentation
+## 🚀 Features
 
-**👉 See [DOCUMENTATION.md](./DOCUMENTATION.md) for complete documentation including:**
-- Seal SDK integration guide
-- Walrus HTTP API usage
-- Access policy implementation
-- Key concepts and best practices
-- Troubleshooting guide
-- Official documentation links
+-   **Decentralized Storage**: Files are stored on [Walrus](https://www.walrus.xyz/), a decentralized storage network, ensuring high availability and censorship resistance.
+-   **End-to-End Encryption**: All files are encrypted client-side using the [Seal SDK](https://github.com/MystenLabs/seal) before leaving your browser.
+-   **Access Control**: Uses on-chain access policies. Only the specified recipient wallet address can decrypt and access the file.
+-   **Metadata Management**: File metadata (names, sizes, blob IDs) is efficiently stored in a **Turso** database for quick retrieval and history tracking.
+-   **Wallet Integration**: Seamless integration with Sui Wallet for authentication and transaction signing.
 
-## Getting Started
+## 🛠️ Tech Stack
 
-First, run the development server:
+-   **Frontend**: Next.js 15, React 19, Tailwind CSS
+-   **Blockchain**: Sui (Testnet)
+-   **Storage**: Walrus
+-   **Encryption**: @mysten/seal
+-   **Database**: Turso (@libsql/client)
+-   **Wallet Adapter**: @mysten/dapp-kit
+
+## ⚙️ How It Works
+
+### Upload Flow
+1.  **Connect Wallet**: User connects their Sui Wallet.
+2.  **Select File**: User selects a file and enters the recipient's wallet address.
+3.  **Encrypt**: The file is encrypted locally using a session key derived from the wallet.
+4.  **Upload**: The encrypted blob is uploaded to the Walrus network.
+5.  **Save Metadata**: The file details (Blob ID, recipient, etc.) are saved to the Turso database.
+
+### Download Flow
+1.  **Access**: User views their "Shared with Me" list or enters a Blob ID.
+2.  **Fetch**: The encrypted blob is downloaded from Walrus.
+3.  **Decrypt**: The user signs a personal message to prove ownership of the recipient wallet. The Seal SDK verifies this and decrypts the file locally.
+4.  **Download**: The decrypted file is saved to the user's device.
+
+## 📦 Getting Started
+
+### Prerequisites
+-   Node.js (v18 or later)
+-   Sui Wallet extension installed in your browser
+
+### Environment Variables
+Create a `.env` file in the root directory with your Turso credentials:
+
+```env
+TURSO_DATABASE_URL=libsql://your-database-url.turso.io
+TURSO_DATABASE_TOKEN=your-auth-token
+```
+
+### Installation
+
+```bash
+npm install
+# or
+yarn install
+```
+
+### Running the App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📚 Documentation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For more detailed technical documentation, see [DOCUMENTATION.md](./DOCUMENTATION.md).
