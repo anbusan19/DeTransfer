@@ -122,12 +122,6 @@ function HomeContent() {
               setRecipientAddress(fileRecord.recipientAddress);
               setIsPublic(!!fileRecord.isPublic);
               setAccessBlobId("");
-              // Automatically start download/decrypt process
-              // We need to wait a bit for state to update or call a function that takes args
-              // Since handleDownload uses state, we might need to be careful.
-              // Ideally handleDownload should accept args, but for now let's just set state.
-              // The user can click "Download" or we can try to trigger it.
-              // Let's just show the file is ready.
             }
           }
         } catch (e) {
@@ -175,19 +169,21 @@ function HomeContent() {
 
       if (!isPublic) {
         setStatus("Encrypting file...");
-        // Encrypt file data
-        const buffer = new Uint8Array(await file.arrayBuffer());
-        // Normalize recipient address to ensure consistent format
         const normalizedRecipient = normalizeSuiAddress(recipientAddress);
-        const { encryptedObject } = await sealClient.encrypt({
-          packageId: SEAL_PACKAGE_ID,
-          id: normalizedRecipient,
-          threshold: 1,
-          data: buffer,
+
+        // ✅ Use streaming encryption to avoid memory crashes
+        const { encryptFileStreaming } = await import('../lib/seal/streaming-encryption');
+        const encryptedBlob = await encryptFileStreaming({
+          file,
+          recipientAddress: normalizedRecipient,
+          onProgress: (progress) => {
+            setUploadProgress(progress);
+            setStatus(`Encrypting: ${progress}%`);
+          }
         });
 
         // Create encrypted file for upload
-        fileToUpload = new File([encryptedObject], file.name, {
+        fileToUpload = new File([encryptedBlob], file.name, {
           type: file.type || "application/octet-stream"
         });
       }
@@ -806,11 +802,8 @@ function HomeContent() {
 export default function Home() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-slate-500 font-medium">Loading Walrus Uploader...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       </div>
     }>
       <HomeContent />
