@@ -1,0 +1,13 @@
+[package]
+name = "seal_access_policy"
+version = "1.0.0"
+edition = "2024"
+
+[addresses]
+seal_access_policy = "0x0"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[dev-dependencies]
+

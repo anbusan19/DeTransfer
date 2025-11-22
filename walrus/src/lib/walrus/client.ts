@@ -1,3 +1,7 @@
+"use client";
+
+import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+
 // Simple Walrus HTTP API integration for testnet
 const WALRUS_PUBLISHER = 'https://publisher.walrus-testnet.walrus.space';
 const WALRUS_AGGREGATOR = 'https://aggregator.walrus-testnet.walrus.space';
@@ -53,3 +57,12 @@ export async function downloadFromWalrus(blobId: string): Promise<Blob> {
 export function extractBlobId(blobId: string): string {
   return blobId;
 }
+
+/**
+ * Walrus client initialized with SUI testnet
+ */
+export const walrusClient = new SuiClient({
+    url: getFullnodeUrl("testnet"),
+    // @ts-ignore – The Walrus SDK strictly requires this property to be present
+    network: "testnet",
+});
