@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { createClient, Client } from '@libsql/client';
 import path from 'path';
 
 export interface FileRecord {
@@ -13,77 +13,109 @@ export interface FileRecord {
 }
 
 class FileDatabase {
-  private db: Database.Database;
+  private client: Client;
 
   constructor() {
-    const dbPath = path.join(process.cwd(), 'walrus-files.db');
-    this.db = new Database(dbPath);
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_DATABASE_TOKEN;
+
+    if (!url || !authToken) {
+      throw new Error('TURSO_DATABASE_URL and TURSO_DATABASE_TOKEN must be defined in environment variables');
+    }
+
+    this.client = createClient({
+      url,
+      authToken,
+    });
+
     this.init();
   }
 
-  private init() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS files (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        walletAddress TEXT NOT NULL,
-        blobId TEXT NOT NULL UNIQUE,
-        fileName TEXT NOT NULL,
-        fileType TEXT NOT NULL,
-        fileSize INTEGER NOT NULL,
-        recipientAddress TEXT NOT NULL,
-        uploadedAt TEXT NOT NULL
-      )
-    `);
-    
-    // Migrate existing table to add recipientAddress column if it doesn't exist
+  private async init() {
     try {
-      const tableInfo = this.db.prepare("PRAGMA table_info(files)").all() as Array<{ name: string }>;
-      const hasRecipientAddress = tableInfo.some(col => col.name === 'recipientAddress');
-      
+      await this.client.execute(`
+        CREATE TABLE IF NOT EXISTS files (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          walletAddress TEXT NOT NULL,
+          blobId TEXT NOT NULL UNIQUE,
+          fileName TEXT NOT NULL,
+          fileType TEXT NOT NULL,
+          fileSize INTEGER NOT NULL,
+          recipientAddress TEXT NOT NULL,
+          uploadedAt TEXT NOT NULL
+        )
+      `);
+
+      // Check if recipientAddress column exists
+      const result = await this.client.execute("PRAGMA table_info(files)");
+      const columns = result.rows;
+      const hasRecipientAddress = columns.some(col => col.name === 'recipientAddress');
+
       if (!hasRecipientAddress) {
-        this.db.exec(`ALTER TABLE files ADD COLUMN recipientAddress TEXT`);
-        // Set default for existing records (use walletAddress as fallback)
-        this.db.exec(`UPDATE files SET recipientAddress = walletAddress WHERE recipientAddress IS NULL`);
+        await this.client.execute(`ALTER TABLE files ADD COLUMN recipientAddress TEXT`);
+        await this.client.execute(`UPDATE files SET recipientAddress = walletAddress WHERE recipientAddress IS NULL`);
       }
     } catch (e) {
-      // Migration failed, but table might already be correct
-      console.warn('Migration warning:', e);
+      console.error('Database initialization failed:', e);
     }
   }
 
-  saveFile(record: Omit<FileRecord, 'id'>) {
-    const stmt = this.db.prepare(`
-      INSERT INTO files (walletAddress, blobId, fileName, fileType, fileSize, recipientAddress, uploadedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    return stmt.run(record.walletAddress, record.blobId, record.fileName, record.fileType, record.fileSize, record.recipientAddress, record.uploadedAt);
+  async saveFile(record: Omit<FileRecord, 'id'>) {
+    await this.client.execute({
+      sql: `
+        INSERT INTO files (walletAddress, blobId, fileName, fileType, fileSize, recipientAddress, uploadedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        record.walletAddress,
+        record.blobId,
+        record.fileName,
+        record.fileType,
+        record.fileSize,
+        record.recipientAddress,
+        record.uploadedAt
+      ]
+    });
   }
 
-  getFilesByWallet(walletAddress: string): FileRecord[] {
-    const stmt = this.db.prepare('SELECT * FROM files WHERE walletAddress = ? ORDER BY uploadedAt DESC');
-    return stmt.all(walletAddress) as FileRecord[];
+  async getFilesByWallet(walletAddress: string): Promise<FileRecord[]> {
+    const result = await this.client.execute({
+      sql: 'SELECT * FROM files WHERE walletAddress = ? ORDER BY uploadedAt DESC',
+      args: [walletAddress]
+    });
+    return result.rows as unknown as FileRecord[];
   }
 
-  getFilesByRecipient(recipientAddress: string): FileRecord[] {
-    const stmt = this.db.prepare('SELECT * FROM files WHERE recipientAddress = ? ORDER BY uploadedAt DESC');
-    return stmt.all(recipientAddress) as FileRecord[];
+  async getFilesByRecipient(recipientAddress: string): Promise<FileRecord[]> {
+    const result = await this.client.execute({
+      sql: 'SELECT * FROM files WHERE recipientAddress = ? ORDER BY uploadedAt DESC',
+      args: [recipientAddress]
+    });
+    return result.rows as unknown as FileRecord[];
   }
 
-  getFileByBlobId(blobId: string): FileRecord | undefined {
-    const stmt = this.db.prepare('SELECT * FROM files WHERE blobId = ?');
-    return stmt.get(blobId) as FileRecord | undefined;
+  async getFileByBlobId(blobId: string): Promise<FileRecord | undefined> {
+    const result = await this.client.execute({
+      sql: 'SELECT * FROM files WHERE blobId = ?',
+      args: [blobId]
+    });
+    return result.rows[0] as unknown as FileRecord | undefined;
   }
 
-  deleteFile(blobId: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM files WHERE blobId = ?');
-    const result = stmt.run(blobId);
-    return result.changes > 0;
+  async deleteFile(blobId: string): Promise<boolean> {
+    const result = await this.client.execute({
+      sql: 'DELETE FROM files WHERE blobId = ?',
+      args: [blobId]
+    });
+    return result.rowsAffected > 0;
   }
 
-  deleteAllFilesByWallet(walletAddress: string): number {
-    const stmt = this.db.prepare('DELETE FROM files WHERE walletAddress = ?');
-    const result = stmt.run(walletAddress);
-    return result.changes;
+  async deleteAllFilesByWallet(walletAddress: string): Promise<number> {
+    const result = await this.client.execute({
+      sql: 'DELETE FROM files WHERE walletAddress = ?',
+      args: [walletAddress]
+    });
+    return result.rowsAffected;
   }
 }
 
